@@ -1,0 +1,8 @@
+# Игнорировать всё внутри data/raw
+data/raw/*
+data/processed/*
+
+# Но оставить саму папку
+!data/raw/.gitkeep
+
+.idea
