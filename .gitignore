@@ -6,3 +6,4 @@ data/processed/*
 !data/raw/.gitkeep
 
 .idea
+result_colored_upper.obj
