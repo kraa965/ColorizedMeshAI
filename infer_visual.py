@@ -31,8 +31,11 @@ def visualize_open3d(V, C):
 def knn_smooth_colors(V, colors, k=12):
     """
     Postprocessing smoothing of predicted per-vertex colors, averaging
-    over k spatial nearest neighbors. Helps clean up residual per-point
-    noise that the model still leaves at chunk boundaries.
+    over k spatial nearest neighbors. NOTE: this blends across the
+    tooth/gum boundary indiscriminately, so it can wash out contrast
+    the model itself predicted correctly. Off by default (smooth_k=0)
+    so infer() returns the model's raw output for honest comparison
+    between checkpoints.
     """
     nbrs = NearestNeighbors(n_neighbors=k).fit(V)
     _, idx = nbrs.kneighbors(V)
@@ -50,7 +53,7 @@ def infer(
     k_neighbors=16,
     device="cuda",
     visualize=True,
-    smooth_k=12
+    smooth_k=0
 ):
     # ---------- load mesh (единый источник) ----------
     mesh = trimesh.load(obj_path, process=False)
@@ -95,7 +98,11 @@ def infer(
 
     preds = np.clip(preds, 0.0, 1.0)
 
-    # ---------- spatial smoothing across full mesh (fixes chunk seams too) ----------
+    # ---------- optional postprocessing smoothing (OFF by default) ----------
+    # Раньше здесь всегда применялось сглаживание (smooth_k=12), из-за чего
+    # в .obj попадал не чистый выход модели, а выход + фильтр поверх, что
+    # мешало честно сравнивать чекпоинты в Blender. По умолчанию smooth_k=0 -
+    # постобработка выключена, экспортируется прямое предсказание сети.
     if smooth_k and smooth_k > 1:
         preds = knn_smooth_colors(V, preds, k=smooth_k)
         preds = np.clip(preds, 0.0, 1.0)
@@ -115,8 +122,8 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    obj_path = "data/test/result_uncolored_upper.obj"
-    model_path = "weights/best_epoch0293_loss0.060139.pth"
+    obj_path = "data/test/Untitled.obj"
+    model_path = "weights/best_epoch0497_loss0.056206.pth"
     out_path = "result_colored_upper.obj"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -129,5 +136,5 @@ if __name__ == "__main__":
         k_neighbors=16,
         device=device,
         visualize=True,
-        smooth_k=12
+        smooth_k=0   # чистый выход модели, без постобработки
     )

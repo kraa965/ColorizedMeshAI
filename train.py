@@ -1,4 +1,5 @@
 import os
+import shutil
 import torch
 from torch.utils.data import DataLoader
 
@@ -16,9 +17,10 @@ N_POINTS = 4096
 BATCH_SIZE = 8
 EPOCHS = 1000
 LR = 1e-3
-SMOOTH_LAMBDA = 0.1
+SMOOTH_LAMBDA = 0.04   # снижено с 0.1 — меньше давит на тонкие цветовые детали (желтизна и т.п.)
 K_NEIGHBORS = 16   # k для EdgeConv и smoothness_loss
 CHECKPOINT_EVERY = 50   # сохранять веса каждые N эпох, независимо от того, лучшие они или нет
+LR_MIN = 1e-5   # минимальный LR к концу обучения (косинусный спад)
 
 # --------------------------------------------
 
@@ -46,12 +48,17 @@ def main():
 
     model = PointNetPPColor(k=K_NEIGHBORS).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=EPOCHS, eta_min=LR_MIN
+    )
 
     best_loss = float("inf")
 
     for epoch in range(EPOCHS):
         model.train()
         total_loss = 0.0
+        total_l1 = 0.0
+        total_smooth = 0.0
 
         for X, Y in loader:
             X = X.to(DEVICE)
@@ -69,9 +76,20 @@ def main():
             optimizer.step()
 
             total_loss += loss.item()
+            total_l1 += loss_l1.item()
+            total_smooth += loss_smooth.item()
+
+        scheduler.step()
 
         avg_loss = total_loss / len(loader)
-        print(f"Epoch {epoch:04d} | Loss: {avg_loss:.6f}")
+        avg_l1 = total_l1 / len(loader)
+        avg_smooth = total_smooth / len(loader)
+        current_lr = scheduler.get_last_lr()[0]
+
+        print(
+            f"Epoch {epoch:04d} | Loss: {avg_loss:.6f} "
+            f"(l1: {avg_l1:.6f}, smooth: {avg_smooth:.6f}) | LR: {current_lr:.2e}"
+        )
 
         # -------- save BEST (with epoch number in filename) --------
         if avg_loss < best_loss:
@@ -85,9 +103,11 @@ def main():
             torch.save(model.state_dict(), best_named_path)
 
             # плюс всегда актуальный best.pth без номера — удобно для infer_visual.py,
-            # чтобы не менять путь к весам после каждого улучшения
+            # чтобы не менять путь к весам после каждого улучшения.
+            # Копируем уже сохранённый файл вместо повторного torch.save(),
+            # чтобы оба файла были побайтово идентичны.
             best_path = os.path.join(WEIGHTS_DIR, "best.pth")
-            torch.save(model.state_dict(), best_path)
+            shutil.copyfile(best_named_path, best_path)
 
             print(f"🔥 Best model updated (loss={best_loss:.6f}) -> {best_named_path}")
 
