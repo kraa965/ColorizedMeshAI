@@ -1,6 +1,8 @@
 from jaw_dataset import JawProcessedDataset
 from torch.utils.data.dataloader import DataLoader
 
+# просто демонстрация/тест, что JawProcessedDataset + DataLoader работают, печатает shape одного батча
+
 train_ds = JawProcessedDataset(
     root_dir="data/processed/upper",
     n_points=4096

@@ -17,6 +17,8 @@ BATCH_SIZE = 8
 EPOCHS = 1000
 LR = 1e-3
 SMOOTH_LAMBDA = 0.1
+K_NEIGHBORS = 16   # k для EdgeConv и smoothness_loss
+CHECKPOINT_EVERY = 50   # сохранять веса каждые N эпох, независимо от того, лучшие они или нет
 
 # --------------------------------------------
 
@@ -31,16 +33,18 @@ def main():
         shuffle=True,
         num_workers=0,   # ВАЖНО для Windows
         pin_memory=True,
-        drop_last=False
+        # drop_last=True: модель использует BatchNorm, который падает
+        # на батчах размера 1 (может случиться на последнем неполном батче)
+        drop_last=True
     )
 
     if len(loader) == 0:
         raise RuntimeError(
             f"DataLoader is empty. Dataset size={len(dataset)}, "
-            f"batch_size={BATCH_SIZE}"
+            f"batch_size={BATCH_SIZE}. Try a smaller BATCH_SIZE or drop_last=False."
         )
 
-    model = PointNetPPColor().to(DEVICE)
+    model = PointNetPPColor(k=K_NEIGHBORS).to(DEVICE)
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
 
     best_loss = float("inf")
@@ -56,7 +60,7 @@ def main():
             pred = model(X)
 
             loss_l1 = torch.nn.functional.l1_loss(pred, Y)
-            loss_smooth = smoothness_loss(X[:, :, :3], pred)
+            loss_smooth = smoothness_loss(X[:, :, :3], pred, k=K_NEIGHBORS)
 
             loss = loss_l1 + SMOOTH_LAMBDA * loss_smooth
 
@@ -69,12 +73,32 @@ def main():
         avg_loss = total_loss / len(loader)
         print(f"Epoch {epoch:04d} | Loss: {avg_loss:.6f}")
 
-        # -------- save BEST only --------
+        # -------- save BEST (with epoch number in filename) --------
         if avg_loss < best_loss:
             best_loss = avg_loss
+
+            # именной чекпоинт: weights/best_epoch0042_loss0.063400.pth
+            best_named_path = os.path.join(
+                WEIGHTS_DIR,
+                f"best_epoch{epoch:04d}_loss{best_loss:.6f}.pth"
+            )
+            torch.save(model.state_dict(), best_named_path)
+
+            # плюс всегда актуальный best.pth без номера — удобно для infer_visual.py,
+            # чтобы не менять путь к весам после каждого улучшения
             best_path = os.path.join(WEIGHTS_DIR, "best.pth")
             torch.save(model.state_dict(), best_path)
-            print(f"🔥 Best model updated (loss={best_loss:.6f})")
+
+            print(f"🔥 Best model updated (loss={best_loss:.6f}) -> {best_named_path}")
+
+        # -------- periodic checkpoint (regardless of best) --------
+        if CHECKPOINT_EVERY and (epoch + 1) % CHECKPOINT_EVERY == 0:
+            ckpt_path = os.path.join(
+                WEIGHTS_DIR,
+                f"epoch{epoch:04d}_loss{avg_loss:.6f}.pth"
+            )
+            torch.save(model.state_dict(), ckpt_path)
+            print(f"💾 Checkpoint saved -> {ckpt_path}")
 
     # -------- save LAST --------
     last_path = os.path.join(WEIGHTS_DIR, "last.pth")

@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
+# класс Dataset, читает подготовленные .npy из data/processed, сэмплит n_points точек на каждый скан
+
 
 class JawProcessedDataset(Dataset):
     def __init__(self, root_dir, n_points=4096):

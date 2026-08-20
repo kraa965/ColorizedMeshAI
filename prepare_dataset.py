@@ -3,6 +3,10 @@ import numpy as np
 import trimesh
 from tqdm import tqdm
 
+# готовит датасет: читает сырые .obj со сканами, вытаскивает координаты+цвет, считает нормали, нормализует геометрию, сохраняет points.npy/colors.npy в data/processed/...
+
+from geometry_utils import normalize_vertices
+
 
 RAW_ROOT = "data/raw"
 OUT_ROOT = "data/processed"
@@ -22,12 +26,6 @@ def load_obj_with_vertex_color(path):
     return np.asarray(V, dtype=np.float32), np.asarray(C, dtype=np.float32)
 
 
-def normalize_vertices(V):
-    V = V - V.mean(axis=0, keepdims=True)
-    scale = np.max(np.linalg.norm(V, axis=1))
-    return V / (scale + 1e-8)
-
-
 def process_obj(obj_path, out_dir):
     # Load XYZ + RGB
     V, C = load_obj_with_vertex_color(obj_path)
@@ -35,8 +33,17 @@ def process_obj(obj_path, out_dir):
     if len(V) == 0:
         raise RuntimeError("No vertices found")
 
-    # Normalize geometry
-    V = normalize_vertices(V)
+    # ---------- fix color range ----------
+    # Some OBJ exporters write vertex colors as 0-255 instead of the
+    # spec-correct 0-1. If we feed 0-255 values to an L1 loss against a
+    # Sigmoid output (0-1), the loss scale is wrong and the model
+    # effectively can't learn color. Detect and fix.
+    if C.max() > 1.0 + 1e-6:
+        C = C / 255.0
+    C = np.clip(C, 0.0, 1.0)
+
+    # Normalize geometry (shared with infer_visual.py so train/inference match)
+    V, _, _ = normalize_vertices(V)
 
     # Compute normals
     mesh = trimesh.load(obj_path, process=False)
