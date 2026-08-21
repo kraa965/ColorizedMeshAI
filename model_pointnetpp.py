@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# сама архитектура сети (EdgeConv/DGCNN), предсказывает цвет по геометрии
+# сама архитектура сети (EdgeConv/DGCNN), предсказывает цвет по геометрии + метке сегмента
 
 
 def knn_idx(xyz, k):
@@ -66,17 +66,22 @@ class EdgeConv(nn.Module):
 
 class PointNetPPColor(nn.Module):
     """
-    Lightweight DGCNN-style network: stacks of EdgeConv layers give each
-    point context from its local neighborhood (unlike a pure per-point
-    Conv1d MLP, which predicts each point's color independently and
-    produces noisy/blotchy boundaries).
+    DGCNN-style сеть. Вход - 8 признаков на точку:
+        xyz (3) + normals (3) + segment_label (1: 1=зуб, 0=десна) + label_mask (1)
+
+    label_mask=1 означает, что segment_label - реальная метка из точной
+    геометрической сегментации (разделённые меши зуб/десна). label_mask=0
+    означает, что сегментация недоступна (единый меш без групп) - тогда
+    segment_label всегда 0, и сеть ориентируется только на геометрию.
+    Обучение со случайным "выключением" маски (см. jaw_dataset.py) учит
+    сеть работать в обоих режимах на одном датасете.
     """
 
-    def __init__(self, k=16):
+    def __init__(self, k=16, in_ch=8):
         super().__init__()
         self.k = k
 
-        self.ec1 = EdgeConv(6, 64, k=k)
+        self.ec1 = EdgeConv(in_ch, 64, k=k)
         self.ec2 = EdgeConv(64, 128, k=k)
         self.ec3 = EdgeConv(128, 128, k=k)
 
@@ -93,9 +98,9 @@ class PointNetPPColor(nn.Module):
 
     def forward(self, x):
         """
-        x: (B, N, 6)  -> XYZ + normals
+        x: (B, N, 8)  -> XYZ + normals + segment label + label mask
         """
-        assert x.dim() == 3 and x.size(2) == 6, f"Expected (B,N,6), got {x.shape}"
+        assert x.dim() == 3 and x.size(2) == 8, f"Expected (B,N,8), got {x.shape}"
 
         xyz = x[:, :, :3]
 

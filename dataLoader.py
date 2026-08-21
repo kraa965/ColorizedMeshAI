@@ -2,6 +2,7 @@ from jaw_dataset import JawProcessedDataset
 from torch.utils.data.dataloader import DataLoader
 
 # просто демонстрация/тест, что JawProcessedDataset + DataLoader работают, печатает shape одного батча
+# ожидаемый shape теперь: X (8, 4096, 8), Y (8, 4096, 3)
 
 train_ds = JawProcessedDataset(
     root_dir="data/processed/upper",

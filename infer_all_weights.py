@@ -5,8 +5,9 @@ import torch
 from infer_visual import infer
 
 
-# прогоняет один и тот же тестовый скан через КАЖДЫЙ файл весов из папки weights
-# и сохраняет каждый результат отдельным .obj в out_dir. Визуализация не открывается.
+# прогоняет один и тот же тестовый скан (сегментированный или обычный)
+# через КАЖДЫЙ файл весов из папки weights и сохраняет каждый результат
+# отдельным .obj в out_dir. Визуализация не открывается.
 
 def infer_all_weights(
     obj_path,
@@ -15,7 +16,6 @@ def infer_all_weights(
     n_points=4096,
     k_neighbors=16,
     device="cuda",
-    smooth_k=0,
     pattern="*.pth"
 ):
     """
@@ -23,8 +23,6 @@ def infer_all_weights(
     и сохраняет результат каждого прогона отдельным файлом в out_dir.
     Имя выходного файла = имя файла весов (без расширения) + .obj.
     Визуализация не открывается — только сохранение на диск.
-    По умолчанию smooth_k=0 — экспортируется чистый выход модели, без
-    постобработки, чтобы честно сравнивать чекпоинты между собой (например, в Blender).
     """
     os.makedirs(out_dir, exist_ok=True)
 
@@ -48,8 +46,7 @@ def infer_all_weights(
             n_points=n_points,
             k_neighbors=k_neighbors,
             device=device,
-            visualize=False,   # визуализация отключена при массовом прогоне
-            smooth_k=smooth_k
+            visualize=False   # визуализация отключена при массовом прогоне
         )
 
     print(f"\n✅ Готово: {len(weight_paths)} результатов сохранено в {out_dir}")
@@ -58,9 +55,9 @@ def infer_all_weights(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    obj_path = "data/test/result_uncolored_upper.obj"
+    obj_path = "test/upper1.obj"  # сегментированный или обычный - определится автоматически
     weights_dir = "weights"
-    out_dir = "data/test/results_by_weights"
+    out_dir = "test/results_by_weights"
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -71,6 +68,5 @@ if __name__ == "__main__":
         n_points=4096,
         k_neighbors=16,
         device=device,
-        smooth_k=0,   # чистый выход модели, без постобработки
         pattern="*.pth"   # можно сузить, например "best_epoch*.pth", чтобы пропустить best.pth/last.pth
     )

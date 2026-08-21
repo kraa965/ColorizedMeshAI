@@ -2,6 +2,7 @@ import torch
 
 # функция smoothness_loss, используется при обучении вместе с L1
 
+
 def smoothness_loss(xyz, colors, k=8):
     """
     xyz:    (B, N, 3)

@@ -1,62 +1,64 @@
 import os
 import numpy as np
-import trimesh
 from tqdm import tqdm
 
-# готовит датасет: читает сырые .obj со сканами, вытаскивает координаты+цвет, считает нормали, нормализует геометрию, сохраняет points.npy/colors.npy в data/processed/...
+# готовит датасет: читает сегментированные .obj со сканами (группы o gingiva /
+# o tooth_N, с цветом в v-строках), вытаскивает точную маску зуб/десна из
+# структуры файла, считает нормали, нормализует геометрию, сохраняет
+# points.npy/colors.npy в data/processed/...
 
 from geometry_utils import normalize_vertices
+from utils.segmented_obj_utils import compute_vertex_normals, load_segmented_obj
 
-
-RAW_ROOT = "data/raw"
+RAW_ROOT = "data/raw"          # только сегментированные .obj (с группами o/g)
 OUT_ROOT = "data/processed"
 
 
-def load_obj_with_vertex_color(path):
-    V, C = [], []
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        for line in f:
-            if line.startswith("v "):
-                parts = line.strip().split()
-                if len(parts) >= 7:
-                    x, y, z = map(float, parts[1:4])
-                    r, g, b = map(float, parts[4:7])
-                    V.append([x, y, z])
-                    C.append([r, g, b])
-    return np.asarray(V, dtype=np.float32), np.asarray(C, dtype=np.float32)
-
-
 def process_obj(obj_path, out_dir):
-    # Load XYZ + RGB
-    V, C = load_obj_with_vertex_color(obj_path)
+    V, F, C, label, tooth_id = load_segmented_obj(obj_path)
 
     if len(V) == 0:
         raise RuntimeError("No vertices found")
+    if C is None:
+        raise RuntimeError("OBJ has no embedded vertex colors (v x y z r g b)")
+    if len(F) == 0:
+        raise RuntimeError("No faces found (needed to compute normals)")
 
     # ---------- fix color range ----------
-    # Some OBJ exporters write vertex colors as 0-255 instead of the
-    # spec-correct 0-1. If we feed 0-255 values to an L1 loss against a
-    # Sigmoid output (0-1), the loss scale is wrong and the model
-    # effectively can't learn color. Detect and fix.
+    # Некоторые экспортёры пишут цвет 0-255 вместо 0-1 по спеке OBJ.
     if C.max() > 1.0 + 1e-6:
         C = C / 255.0
     C = np.clip(C, 0.0, 1.0)
 
-    # Normalize geometry (shared with infer_visual.py so train/inference match)
-    V, _, _ = normalize_vertices(V)
+    # ---------- убрать неразмеченные вершины (label == -1) ----------
+    # Такие вершины не входят ни в одну грань ни одной группы -
+    # исключаем их из обучающих данных, чтобы не путать сеть.
+    valid = label >= 0
+    if not valid.all():
+        dropped = (~valid).sum()
+        print(f"  [!] {os.path.basename(obj_path)}: dropping {dropped} unlabeled vertices")
 
-    # Compute normals
-    mesh = trimesh.load(obj_path, process=False)
-    N = mesh.vertex_normals.astype(np.float32)
+    # ---------- normalize geometry ----------
+    Vn, _, _ = normalize_vertices(V)
 
-    if len(N) != len(V):
-        raise RuntimeError("Normals count mismatch")
+    # ---------- normals (по полному списку граней, до фильтрации) ----------
+    N = compute_vertex_normals(V, F)
 
-    points = np.concatenate([V, N], axis=1)
+    # points: xyz + normals + label (зуб=1/десна=0) + mask (1=метка известна)
+    # = 8 признаков на точку. При подготовке датасета метка всегда реальная
+    # (mask=1) - "выключение" метки для эмуляции несегментированного входа
+    # делается позже, во время обучения, в jaw_dataset.py (аугментация).
+    mask = np.ones((len(V), 1), dtype=np.float32)
+    points = np.concatenate(
+        [Vn, N, label.reshape(-1, 1).astype(np.float32), mask], axis=1
+    )
+
+    points = points[valid]
+    C = C[valid]
 
     os.makedirs(out_dir, exist_ok=True)
-    np.save(os.path.join(out_dir, "points.npy"), points)
-    np.save(os.path.join(out_dir, "colors.npy"), C)
+    np.save(os.path.join(out_dir, "points.npy"), points.astype(np.float32))  # (N, 8)
+    np.save(os.path.join(out_dir, "colors.npy"), C.astype(np.float32))       # (N, 3)
 
 
 def process_split(split_name):
@@ -92,6 +94,7 @@ def main():
         process_split(split)
 
     print("\n✅ Dataset preprocessing completed")
+    print("   points.npy теперь (N, 8): xyz(3) + normals(3) + label(1, зуб=1/десна=0) + mask(1)")
 
 
 if __name__ == "__main__":

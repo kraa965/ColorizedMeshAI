@@ -70,5 +70,5 @@ def segment_obj(obj_path):
 
 
 if __name__ == "__main__":
-    obj_path = "../data/test/upper1.obj"
+    obj_path = "../test/upper1.obj"
     segment_obj(obj_path)

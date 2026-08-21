@@ -1,6 +1,7 @@
 import numpy as np
 
-# общая функция нормализации координат, используется и в
+# общая функция нормализации координат, используется и в prepare_dataset.py, и в infer_visual.py
+
 
 def normalize_vertices(V):
     """

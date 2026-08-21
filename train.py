@@ -21,6 +21,9 @@ SMOOTH_LAMBDA = 0.04   # снижено с 0.1 — меньше давит на 
 K_NEIGHBORS = 16   # k для EdgeConv и smoothness_loss
 CHECKPOINT_EVERY = 50   # сохранять веса каждые N эпох, независимо от того, лучшие они или нет
 LR_MIN = 1e-5   # минимальный LR к концу обучения (косинусный спад)
+LABEL_DROPOUT_PROB = 0.3   # доля сканов за эпоху, для которых метка сегмента
+                             # "выключается" - учит сеть работать и без
+                             # сегментации (единый меш), не только с ней
 
 # --------------------------------------------
 
@@ -28,7 +31,9 @@ LR_MIN = 1e-5   # минимальный LR к концу обучения (ко
 def main():
     os.makedirs(WEIGHTS_DIR, exist_ok=True)
 
-    dataset = JawProcessedDataset(DATA_ROOT, n_points=N_POINTS)
+    dataset = JawProcessedDataset(
+        DATA_ROOT, n_points=N_POINTS, label_dropout_prob=LABEL_DROPOUT_PROB
+    )
     loader = DataLoader(
         dataset,
         batch_size=BATCH_SIZE,
@@ -61,7 +66,7 @@ def main():
         total_smooth = 0.0
 
         for X, Y in loader:
-            X = X.to(DEVICE)
+            X = X.to(DEVICE)   # (B, N, 8) geometry: xyz+normals+segment_label+label_mask
             Y = Y.to(DEVICE)
 
             pred = model(X)
