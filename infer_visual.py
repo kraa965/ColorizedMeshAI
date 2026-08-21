@@ -176,10 +176,13 @@ if __name__ == "__main__":
     # автоматически по наличию групп в файле.
     # out_path автоматически получит номер эпохи из имени файла весов,
     # например: result_colored_upper.obj -> result_colored_upper_0000.obj
-    obj_path = "test/Untitled.obj"
+    model_path = "weights/best_epoch0084_loss0.062486.pth"
+
+    obj_path = "test/result_seg_uncolored_upper.obj"
+    out_path = "result/result_seg_colored_upper.obj"
     # obj_path = "test/result_uncolored_upper.obj"
-    model_path = "weights/best_epoch0180_loss0.059800.pth"
-    out_path = "result/result_colored_upper.obj"
+    # out_path = "result/result_colored_upper.obj"
+
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
