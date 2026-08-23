@@ -174,23 +174,27 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    # obj_path может быть как сегментированным (группы o tooth_N/gingiva),
-    # так и обычным единым мешем без сегментации - infer() определяет это
-    # автоматически по наличию групп в файле.
-    # out_path автоматически получит номер эпохи из имени файла весов,
-    # например: result_colored_upper.obj -> result_colored_upper_0000.obj
-    model_path = "weights/best_epoch0046_loss0.064110.pth"
-    obj_path = "test/result_uncolored_upper.obj"
-    out_path = "result/result_colored_upper.obj"
-
+    model_path = "weights/best_epoch0072_loss0.062733.pth"
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    infer(
-        obj_path=obj_path,
-        model_path=model_path,
-        out_path=out_path,
-        n_points=4096,
-        k_neighbors=16,
-        device=device,
-        visualize=True
-    )
+    # Пары: (входной_неокрашенный, выходной_окрашенный)
+    jobs = [
+        ("test/result_uncolored_upper.obj",   "result/result_colored_upper.obj"),
+        ("test/result_seg_uncolored_upper.obj", "result/result_seg_colored_upper.obj"),
+    ]
+
+    for obj_path, out_path in jobs:
+        print(f"\n{'='*50}")
+        print(f"▶ Processing: {obj_path}")
+        print(f"{'='*50}")
+
+        infer(
+            obj_path=obj_path,
+            model_path=model_path,
+            out_path=out_path,
+            n_points=4096,
+            k_neighbors=16,
+            device=device,
+            visualize=True,      # ← False, если не хотите, чтобы окна визуализации
+            n_passes=4           #     открывались между файлами (Open3D блокирует)
+        )

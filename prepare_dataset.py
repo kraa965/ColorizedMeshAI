@@ -8,7 +8,8 @@ from tqdm import tqdm
 # points.npy/colors.npy в data/processed/...
 
 from geometry_utils import normalize_vertices
-from utils.segmented_obj_utils import compute_vertex_normals, load_segmented_obj
+from utils.segmented_obj_utils import load_segmented_obj, compute_vertex_normals, fix_mesh_orientation
+
 
 RAW_ROOT = "data/raw"          # только сегментированные .obj (с группами o/g)
 OUT_ROOT = "data/processed"
@@ -41,7 +42,13 @@ def process_obj(obj_path, out_dir):
     # ---------- normalize geometry ----------
     Vn, _, _ = normalize_vertices(V)
 
-    # ---------- normals (по полному списку граней, до фильтрации) ----------
+    # ---------- normals (согласуем winding order по всему мешу перед расчётом) ----------
+    # Без этого шага нормали для части граней могут получиться развёрнутыми
+    # на 180° из-за несогласованного порядка вершин в исходном OBJ (см.
+    # диагностику: tooth_21-28 были развёрнуты на 100% ровно по одной
+    # половине зубного ряда) - неверный знак нормали портит признак,
+    # на котором учится сеть.
+    F = fix_mesh_orientation(V, F)
     N = compute_vertex_normals(V, F)
 
     # points: xyz + normals + label (зуб=1/десна=0) + mask (1=метка известна)
