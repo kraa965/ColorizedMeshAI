@@ -174,7 +174,7 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    model_path = "weights/best_epoch0072_loss0.062733.pth"
+    model_path = "weights/best_epoch0098_loss0.061623.pth"
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Пары: (входной_неокрашенный, выходной_окрашенный)

@@ -1,7 +1,11 @@
 import os
+import sys
 import shutil
+import time
+from datetime import datetime
 import torch
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from jaw_dataset import JawProcessedDataset
 from model_pointnetpp import PointNetPPColor
@@ -60,12 +64,16 @@ def main():
     best_loss = float("inf")
 
     for epoch in range(EPOCHS):
+        epoch_start = time.time()
+        tqdm.write(f"\n▶ Epoch {epoch:04d} started at {datetime.now().strftime('%H:%M:%S')}")
+
         model.train()
         total_loss = 0.0
         total_l1 = 0.0
         total_smooth = 0.0
 
-        for X, Y in loader:
+        pbar = tqdm(loader, desc=f"Epoch {epoch:04d}", unit="batch", leave=True, file=sys.stdout)
+        for X, Y in pbar:
             X = X.to(DEVICE)   # (B, N, 8) geometry: xyz+normals+segment_label+label_mask
             Y = Y.to(DEVICE)
 
@@ -84,16 +92,20 @@ def main():
             total_l1 += loss_l1.item()
             total_smooth += loss_smooth.item()
 
+            pbar.set_postfix(loss=f"{loss.item():.4f}")
+
         scheduler.step()
 
         avg_loss = total_loss / len(loader)
         avg_l1 = total_l1 / len(loader)
         avg_smooth = total_smooth / len(loader)
         current_lr = scheduler.get_last_lr()[0]
+        epoch_time = time.time() - epoch_start
 
-        print(
+        tqdm.write(
             f"Epoch {epoch:04d} | Loss: {avg_loss:.6f} "
-            f"(l1: {avg_l1:.6f}, smooth: {avg_smooth:.6f}) | LR: {current_lr:.2e}"
+            f"(l1: {avg_l1:.6f}, smooth: {avg_smooth:.6f}) | LR: {current_lr:.2e} "
+            f"| Time: {epoch_time:.1f}s"
         )
 
         # -------- save BEST (with epoch number in filename) --------
@@ -114,7 +126,7 @@ def main():
             best_path = os.path.join(WEIGHTS_DIR, "best.pth")
             shutil.copyfile(best_named_path, best_path)
 
-            print(f"🔥 Best model updated (loss={best_loss:.6f}) -> {best_named_path}")
+            tqdm.write(f"🔥 Best model updated (loss={best_loss:.6f}) -> {best_named_path}")
 
         # -------- periodic checkpoint (regardless of best) --------
         if CHECKPOINT_EVERY and (epoch + 1) % CHECKPOINT_EVERY == 0:
@@ -123,7 +135,7 @@ def main():
                 f"epoch{epoch:04d}_loss{avg_loss:.6f}.pth"
             )
             torch.save(model.state_dict(), ckpt_path)
-            print(f"💾 Checkpoint saved -> {ckpt_path}")
+            tqdm.write(f"💾 Checkpoint saved -> {ckpt_path}")
 
     # -------- save LAST --------
     last_path = os.path.join(WEIGHTS_DIR, "last.pth")
