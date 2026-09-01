@@ -5,6 +5,7 @@ data/raw_orig/*
 data/ubuntu_flat1/*
 weights_l
 weights_u
+weights.zip
 
 # Но оставить саму папку
 !data/raw/.gitkeep
