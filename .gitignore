@@ -1,8 +1,13 @@
 # Игнорировать всё внутри data/raw
 data/raw/*
 data/processed/*
+data/raw_orig/*
+data/ubuntu_flat1/*
+weights_l
+weights_u
 
 # Но оставить саму папку
+!data/raw/.gitkeep
 !data/raw/.gitkeep
 
 .idea

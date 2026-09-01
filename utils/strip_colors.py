@@ -44,8 +44,8 @@ def strip_colors(obj_path, out_path, neutral_gray=0.75, visualize=True):
 
 
 if __name__ == "__main__":
-    obj_path = os.path.join(PROJECT_ROOT, "data/test/01.02.2024-Ткаченко Кристина Ивановна-maxillary.obj")
-    out_path = os.path.join(PROJECT_ROOT, "data/test/result_uncolored_upper.obj")
+    obj_path = os.path.join(PROJECT_ROOT, "test/Untitled.obj")
+    out_path = os.path.join(PROJECT_ROOT, "test/result_seg_uncolored_lower.obj")
 
     strip_colors(
         obj_path=obj_path,

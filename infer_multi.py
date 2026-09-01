@@ -174,13 +174,13 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    model_path = "weights/best_epoch0098_loss0.061623.pth"
+    model_path = "weights_l/best_epoch0073_loss0.064479.pth"
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Пары: (входной_неокрашенный, выходной_окрашенный)
     jobs = [
-        ("test/result_uncolored_upper.obj",   "result/result_colored_upper.obj"),
-        ("test/result_seg_uncolored_upper.obj", "result/result_seg_colored_upper.obj"),
+        ("test/result_uncolored_lower.obj",   "result/result_colored_lower.obj"),
+        ("test/result_seg_uncolored_lower.obj", "result/result_seg_colored_lower.obj"),
     ]
 
     for obj_path, out_path in jobs:
