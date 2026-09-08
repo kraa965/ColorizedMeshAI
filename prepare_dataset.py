@@ -7,7 +7,7 @@ from tqdm import tqdm
 # структуры файла, считает нормали, нормализует геометрию, сохраняет
 # points.npy/colors.npy в data/processed/...
 
-from geometry_utils import normalize_vertices
+from utils.geometry_utils import normalize_vertices
 from utils.segmented_obj_utils import load_segmented_obj, compute_vertex_normals, fix_mesh_orientation
 
 

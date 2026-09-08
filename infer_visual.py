@@ -5,10 +5,10 @@ import torch
 import open3d as o3d
 
 from model_pointnetpp import PointNetPPColor
-from geometry_utils import normalize_vertices
+from utils.geometry_utils import normalize_vertices
 from utils.segmented_obj_utils import (
     load_segmented_obj, compute_vertex_normals, fix_mesh_orientation,
-    save_colored_obj, save_colored_obj_grouped
+    save_colored_obj_grouped
 )
 
 

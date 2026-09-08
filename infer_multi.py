@@ -5,10 +5,10 @@ import torch
 import open3d as o3d
 
 from model_pointnetpp import PointNetPPColor
-from geometry_utils import normalize_vertices
+from utils.geometry_utils import normalize_vertices
 from utils.segmented_obj_utils import (
     load_segmented_obj, compute_vertex_normals, fix_mesh_orientation,
-    save_colored_obj, save_colored_obj_grouped
+    save_colored_obj_grouped
 )
 
 
@@ -174,13 +174,24 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    model_path = "weights_l/best_epoch0073_loss0.064479.pth"
+    model_path = "weights_l/best_epoch0977_loss0.054244.pth"
+    # model_path = "weights_u/best_epoch0976_loss0.053915.pth"
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Пары: (входной_неокрашенный, выходной_окрашенный)
+    # jobs = [
+    #     ("test/result_uncolored_upper.obj",   "result/result_colored_upper.obj"),
+    #     ("test/result_seg_uncolored_upper.obj", "result/result_seg_colored_upper.obj"),
+    # ]
+
+    # jobs = [
+    #     ("test/result_uncolored_lower.obj", "result/result_colored_lower.obj"),
+    #     ("test/result_seg_uncolored_lower.obj", "result/result_seg_colored_lower.obj"),
+    # ]
+
     jobs = [
-        ("test/result_uncolored_lower.obj",   "result/result_colored_lower.obj"),
-        ("test/result_seg_uncolored_lower.obj", "result/result_seg_colored_lower.obj"),
+        ("test/upper.obj", "result/result_colored_upper_u.obj"),
+        ("test/lower.obj", "result/result_colored_lower_l.obj"),
     ]
 
     for obj_path, out_path in jobs:
