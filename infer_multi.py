@@ -12,18 +12,6 @@ from utils.segmented_obj_utils import (
 )
 
 
-# Загружает обученные веса и красит скан - сегментированный (с группами
-# o tooth_N / o gingiva) ИЛИ обычный единый меш без сегментации, автоматически.
-# Если группы есть - точная маска зуб/десна берётся прямо из структуры файла;
-# если групп нет - модель работает по одной геометрии (как и обучалась для
-# этого случая через label_dropout в train.py). Сохраняет результат и
-# опционально открывает 3D-визуализацию.
-#
-# n_passes: сколько раз прогнать весь скан со случайной перестановкой точек
-# перед разбиением на чанки по n_points, с усреднением предсказаний по
-# каждой точке. Больше проходов = точнее (меньше шанс, что точка окажется
-# в "неудачном" чанке), но дольше. 4 - разумный баланс по умолчанию.
-
 # ---------- utils ----------
 
 def visualize_open3d(V, C):
@@ -123,15 +111,6 @@ def infer(
     model.eval()
 
     # ---------- inference (несколько случайных проходов + усреднение) ----------
-    # ВАЖНО: при обучении (jaw_dataset.py) сеть видит n_points случайно
-    # выбранных точек ПО ВСЕМУ скану (np.random.choice), а не куски по
-    # порядку вершин в файле. Если резать вход последовательными кусками
-    # X[i:i+bs] (как раньше), часть чанков окажется однородной (например,
-    # чанк только из десны или только из одного зуба целиком) - сеть
-    # никогда не видела такого на обучении и даёт "плоское" предсказание
-    # именно на таких чанках. Отсюда "полосатая" раскраска (часть зубов
-    # без цвета).
-    #
     # Чтобы честно повторить распределение обучения, делаем несколько
     # проходов со случайной перестановкой точек, разбитых на чанки по
     # n_points, и усредняем предсказания по каждой точке.
@@ -174,29 +153,30 @@ def infer(
 # ---------- entry point ----------
 
 if __name__ == "__main__":
-    model_path = "weights_l/best_epoch0977_loss0.054244.pth"
-    # model_path = "weights_u/best_epoch0976_loss0.053915.pth"
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # Пары: (входной_неокрашенный, выходной_окрашенный)
-    # jobs = [
-    #     ("test/result_uncolored_upper.obj",   "result/result_colored_upper.obj"),
-    #     ("test/result_seg_uncolored_upper.obj", "result/result_seg_colored_upper.obj"),
-    # ]
+    weights = {
+        "upper": "weights/best_epoch0976_loss0.053915.pth",
+        "lower": "weights/best_epoch0977_loss0.054244.pth",
+    }
 
-    # jobs = [
-    #     ("test/result_uncolored_lower.obj", "result/result_colored_lower.obj"),
-    #     ("test/result_seg_uncolored_lower.obj", "result/result_seg_colored_lower.obj"),
-    # ]
-
+    # Каждый джоб теперь сам указывает, какие веса использовать (jaw)
     jobs = [
-        ("test/upper.obj", "result/result_colored_upper_u.obj"),
-        ("test/lower.obj", "result/result_colored_lower_l.obj"),
+        ("test/upper.obj", "result/result_colored_upper_u.obj", "upper"),
+        ("test/lower.obj", "result/result_colored_lower_l.obj", "lower"),
+
+        ("test/result_uncolored_upper.obj", "result/result_colored_upper.obj", "upper"),
+        ("test/result_seg_uncolored_upper.obj", "result/result_seg_colored_upper.obj", "upper"),
+
+        ("test/result_uncolored_lower.obj", "result/result_colored_lower.obj", "lower"),
+        ("test/result_seg_uncolored_lower.obj", "result/result_seg_colored_lower.obj", "lower"),
     ]
 
-    for obj_path, out_path in jobs:
+    for obj_path, out_path, jaw in jobs:
+        model_path = weights[jaw]
+
         print(f"\n{'='*50}")
-        print(f"▶ Processing: {obj_path}")
+        print(f"▶ Processing: {obj_path} (jaw={jaw}, weights={model_path})")
         print(f"{'='*50}")
 
         infer(
@@ -206,6 +186,6 @@ if __name__ == "__main__":
             n_points=4096,
             k_neighbors=16,
             device=device,
-            visualize=True,      # ← False, если не хотите, чтобы окна визуализации
-            n_passes=4           #     открывались между файлами (Open3D блокирует)
+            visualize=True,
+            n_passes=4
         )
